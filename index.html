@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사이좋계 거래내역 - 완전개선버전</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            margin: 0;
+            padding: 0;
+        }
+
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background: linear-gradient(-45deg, #0f0f23, #1a1a3a, #2d1b69, #3b1f8a, #4f46e5, #6366f1);
+            background-size: 400% 400%;
+            animation: gradientShift 10s ease infinite;
+            min-height: 100vh;
+            color: white;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .app-container {
+            max-width: 430px;
+            margin: 0 auto;
+            padding: 0.5rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass-card {
+            background: linear-gradient(135deg, 
+                rgba(255,255,255,0.1) 0%,
+                rgba(255,255,255,0.05) 50%,
+                rgba(255,255,255,0.1) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            box-shadow: 
+                0 8px 32px rgba(0,0,0,0.3),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.7);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            font-size: 0.75rem;
+            padding: 0.5rem;
+            cursor: pointer;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            color: white;
+            box-shadow: 0 0 15px rgba(255,0,110,0.4);
+        }
+
+        .member-btn, .year-btn, .category-btn {
+            background: linear-gradient(45deg, #ff006e, #8338ec, #3a86ff, #10b981);
+            background-size: 300% 300%;
+            animation: memberFlow 3s ease infinite;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            padding: 0.75rem;
+            margin: 0.25rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 50px;
+            font-size: 0.85rem;
+        }
+
+        @keyframes memberFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .member-btn:hover, .year-btn:hover, .category-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+
+        .page-container {
+            flex: 1;
+            position: relative;
+            min-height: 400px;
+        }
+
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 1rem;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .page.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .content-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+            max-height: 50vh;
+        }
+
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+            margin-top: 1rem;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 0.5rem 0.25rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .transaction-table th {
+            background: rgba(255,255,255,0.1);
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+        }
+
+        .amount.withdrawal { color: #ff6b6b; font-weight: 700; }
+        .amount.deposit { color: #51cf66; font-weight: 700; }
+        .amount.balance { color: #74c0fc; font-weight: 700; }
+
+        .chart-container {
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .summary-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        .floating-buttons {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            color: white;
+        }
+
+        .input-field {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: white;
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .input-field::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255,0,110,0.4);
+        }
+
+        .unpaid-item {
+            background: rgba(255,107,107,0.2);
+            border: 1px solid rgba(255,107,107,0.3);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .calendar-container {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .notice-item, .meeting-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .receipt-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            border-radius: 10px;
+        }
+
+        .update-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .update-btn-small {
+            background: linear-gradient(135deg, #ff006e, #8338ec);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            font-size: 0.7rem;
+            transition: all 0.3s ease;
+        }
+
+        .update-btn-small:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(255,0,110,0.4);
+        }
+
+        .edit-form {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0;
+        }
+
+        .edit-form input {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            padding: 0.5rem;
+            color: white;
+            margin: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        .edit-form input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body>
+    <!-- 공지사항 팝업 -->
+    <div id="noticeModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">📢 최신 공지사항</h3>
+                <button onclick="closeNoticeModal()" class="text-white text-xl hover:text-red-400">&times;</button>
+            </div>
+            <div id="noticeContent" class="content-scroll" style="max-height: 60vh;">
+                <!-- 공지 내용이 동적으로 채워집니다 -->
+            </div>
+            <div class="mt-4">
+                <button class="btn-primary w-full" onclick="closeNoticeModal()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모임 일정 팝업 -->
+    <div id="meetingModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">📅 다음 모임 일정</h3>
+                <button onclick="closeMeetingModal()" class="text-white text-xl hover:text-red-400">&times;</button>
+            </div>
+            <div id="meetingContent">
+                <!-- 모임 내용이 동적으로 채워집니다 -->
+            </div>
+            <div class="mt-4">
+                <button class="btn-primary w-full" onclick="closeMeetingModal()">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 데이터 관리 모달 -->
+    <div id="updateModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">🔄 데이터 관리</h3>
+                <button onclick="closeUpdateModal()" class="text-white text-xl hover:text-red-400">&times;</button>
+            </div>
+            <div id="passwordArea">
+                <input type="password" id="updatePassword" class="input-field" placeholder="관리자 코드 입력">
+                <button class="btn-primary w-full mt-2" onclick="checkPassword()">확인</button>
+            </div>
+            <div id="dataArea" class="hidden">
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button class="tab-btn active" id="pasteDataTab" onclick="showUpdateTab('paste')">업데이트</button>
+                    <button class="tab-btn" id="editDataTab" onclick="showUpdateTab('edit')">수정하기</button>
+                </div>
+                <div id="pasteArea">
+                    <textarea id="updateData" class="input-field h-24" placeholder="엑셀 데이터를 붙여넣기 하세요..."></textarea>
+                    <button class="btn-primary w-full mb-2" onclick="processUpdateFromPaste()">붙여넣기</button>
+                    <div class="upload-area mt-2" onclick="document.getElementById('csvUpload').click()">
+                        <i class="fas fa-file-csv text-2xl text-green-400"></i>
+                        <p>CSV 파일로 업데이트</p>
+                        <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="handleFileUpload(event)">
+                    </div>
+                </div>
+                <div id="editArea" class="hidden">
+                    <div class="content-scroll" style="max-height: 300px;">
+                        <table class="transaction-table"><thead><tr><th>날짜</th><th>내용</th><th>금액</th><th>수정</th></tr></thead>
+                            <tbody id="updateTransactionList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 수정 폼 모달 -->
+    <div id="editModal" class="modal hidden">
+        <div class="modal-content">
+             <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">📝 항목 수정</h3>
+                <button onclick="cancelEdit()" class="text-white text-xl hover:text-red-400">&times;</button>
+            </div>
+            <div id="editForm" class="edit-form">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <input type="text" id="editNo" placeholder="No." readonly>
+                    <input type="text" id="editDate" placeholder="날짜 (YY.MM.DD)">
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <input type="text" id="editContent" placeholder="기재내용">
+                    <input type="text" id="editMemo" placeholder="메모">
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <input type="number" id="editWithdrawal" placeholder="찾은금액" min="0">
+                    <input type="number" id="editDeposit" placeholder="맡긴금액" min="0">
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button class="btn-primary flex-1" onclick="saveEdit()">저장</button>
+                    <button class="btn-primary flex-1" onclick="cancelEdit()">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <div class="glass-card p-3 text-center mb-3">
+            <div class="update-title">
+                <h1 class="text-lg font-black flex-1"><i class="fas fa-coins mr-2 text-yellow-400"></i>사이좋계 거래내역</h1>
+                <button class="update-btn-small" onclick="openUpdateModal()"><i class="fas fa-sync-alt"></i> 관리</button>
+            </div>
+            <div class="text-sm text-gray-300 mt-1" id="currentDate"></div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="glass-card p-2 mb-3">
+            <div class="grid grid-cols-4 gap-1 mb-2">
+                <button class="tab-btn active" data-page="0">전체</button>
+                <button class="tab-btn" data-page="1">년별</button>
+                <button class="tab-btn" data-page="2">회원별</button>
+                <button class="tab-btn" data-page="3">지출</button>
+            </div>
+            <div class="grid grid-cols-4 gap-1">
+                <button class="tab-btn" data-page="4">미납금</button>
+                <button class="tab-btn" data-page="5">영수증</button>
+                <button class="tab-btn" data-page="6">공지</button>
+                <button class="tab-btn" data-page="7">모임</button>
+            </div>
+        </div>
+
+        <!-- Floating Buttons -->
+        <div id="yearButtons" class="floating-buttons hidden"><div class="grid grid-cols-4 gap-2"><button class="year-btn" data-year="2023">2023</button><button class="year-btn" data-year="2024">2024</button><button class="year-btn" data-year="2025">2025</button><button class="year-btn active" data-year="all">전체</button></div></div>
+        <div id="memberButtons" class="floating-buttons hidden"><div class="grid grid-cols-4 gap-2 mb-2"><button class="member-btn" data-member="김봉철">김봉철</button><button class="member-btn" data-member="김봉정">김봉정</button><button class="member-btn" data-member="배정길">배정길</button><button class="member-btn" data-member="이해경">이해경</button></div><div class="grid grid-cols-4 gap-2"><button class="member-btn" data-member="황상호">황상호</button><button class="member-btn" data-member="곽상태">곽상태</button><button class="member-btn" data-member="이한욱">이한욱</button><button class="member-btn" data-member="@이자">이자</button></div></div>
+        <div id="expenseButtons" class="floating-buttons hidden"><div class="grid grid-cols-2 gap-2"><button class="category-btn active" data-expense-type="monthly">월별</button><button class="category-btn" data-expense-type="category">항목별</button></div></div>
+
+        <!-- Page Container -->
+        <div class="page-container glass-card" style="flex-grow: 1;">
+            <!-- Page 0: 전체 -->
+            <div class="page active" data-page="0">
+                <h2 class="text-lg font-bold mb-3">💰 전체 거래내역</h2>
+                <div class="summary-grid"><div class="summary-item"><div class="text-xs text-gray-300">총 입금</div><div class="text-green-400 font-bold" id="totalDeposit">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">총 지출</div><div class="text-red-400 font-bold" id="totalWithdrawal">0원</div></div></div>
+                <div class="summary-grid"><div class="summary-item"><div class="text-xs text-gray-300">현재 잔액</div><div class="text-blue-400 font-bold" id="currentBalance">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">거래 건수</div><div class="text-white font-bold" id="totalTransactions">0건</div></div></div>
+                <div class="content-scroll" id="allTransactionsContainer"><table class="transaction-table"><thead><tr><th>날짜</th><th>내용</th><th>금액</th><th>잔액</th></tr></thead><tbody id="allTransactions"></tbody></table></div>
+                <div class="flex justify-center mt-2"><button id="prevPageBtn" class="btn-primary">이전</button><span id="pageIndicator" class="mx-4 self-center"></span><button id="nextPageBtn" class="btn-primary">다음</button></div>
+            </div>
+
+            <!-- Page 1: 년별 -->
+            <div class="page" data-page="1"><h2 class="text-lg font-bold mb-3">📊 년별 통계</h2><div class="chart-container"><canvas id="yearlyChart"></canvas></div><div class="content-scroll"><div id="yearlyStats"></div></div></div>
+
+            <!-- Page 2: 회원별 -->
+            <div class="page" data-page="2"><h2 class="text-lg font-bold mb-3">👥 회원별 현황</h2><div id="memberStats" class="summary-grid hidden"><div class="summary-item"><div class="text-xs text-gray-300">총 입금액</div><div class="text-green-400 font-bold" id="memberTotalAmount">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">입금 횟수</div><div class="text-blue-400 font-bold" id="memberTotalCount">0회</div></div></div><div class="content-scroll"><table class="transaction-table"><thead><tr><th>날짜</th><th>내용</th><th>금액</th><th>메모</th></tr></thead><tbody id="memberTransactions"></tbody></table></div></div>
+
+            <!-- Page 3: 지출 -->
+            <div class="page" data-page="3"><h2 class="text-lg font-bold mb-3">💸 지출 분석</h2><div class="grid grid-cols-2 gap-4"><div class="chart-container" style="height: 150px;"><canvas id="expenseBarChart"></canvas></div><div class="chart-container" style="height: 150px;"><canvas id="expenseDoughnutChart"></canvas></div></div><div class="content-scroll" id="expenseDetails"></div></div>
+
+            <!-- Page 4: 미납금 -->
+            <div class="page" data-page="4"><h2 class="text-lg font-bold mb-3">⚠️ 미납금 현황</h2><p class="text-xs text-gray-400 mb-3">(2025년 8월 기준, 자동이체 시 금월분 제외)</p><div class="content-scroll" id="unpaidList"></div></div>
+
+            <!-- Page 5: 영수증 -->
+            <div class="page" data-page="5"><h2 class="text-lg font-bold mb-3">📷 영수증 관리</h2><div class="content-scroll"><button class="btn-primary w-full mb-4" onclick="document.getElementById('receiptUpload').click()">영수증 등록</button><input type="file" id="receiptUpload" accept="image/*" style="display: none;" onchange="handleReceiptUpload(event)"><div id="receiptList"></div></div></div>
+
+            <!-- Page 6: 공지 -->
+            <div class="page" data-page="6"><h2 class="text-lg font-bold mb-3">📢 공지사항</h2><div class="content-scroll"><div class="mb-4"><input type="text" id="noticeUser" class="input-field" placeholder="등록자 이름"><textarea id="newNotice" class="input-field h-24" placeholder="새 공지사항을 입력하세요..."></textarea><button class="btn-primary mt-2 w-full" onclick="addNotice()"><i class="fas fa-megaphone mr-2"></i>공지 등록</button></div><div id="noticeList"></div></div></div>
+
+            <!-- Page 7: 모임 -->
+            <div class="page" data-page="7"><h2 class="text-lg font-bold mb-3">📅 모임 일정</h2><div class="content-scroll"><div class="calendar-container"><input type="text" id="meetingUser" class="input-field mb-2" placeholder="등록자 이름"><input type="datetime-local" id="meetingDate" class="input-field mb-2"><input type="text" id="meetingPlace" class="input-field mb-2" placeholder="모임 장소를 입력하세요..."><textarea id="meetingDescription" class="input-field h-16" placeholder="모임 설명을 입력하세요..."></textarea><button class="btn-primary w-full mt-2" onclick="addMeeting()"><i class="fas fa-calendar-plus mr-2"></i>모임 등록</button></div><div id="meetingList"></div></div></div>
+        </div>
+    </div>
+
+    <script src="./data.js"></script>
+    <script>
+        // =================================================================================
+        // 전역 변수, 상수 및 상태 관리
+        // =================================================================================
+        let allTransactionData = [];
+        let notices = [];
+        let meetings = [];
+        let receipts = [];
+        
+        let currentPage = 0;
+        const ITEMS_PER_PAGE = 20; // 전체 뷰의 페이지당 항목 수
+
+        let yearlyChart, expenseBarChart, expenseDoughnutChart;
+        let editingIndex = -1;
+        let isPasswordVerified = false;
+
+        const MEMBERS = {
+            '김봉철': { aliases: ['박희정'] }, '김봉정': { aliases: ['강귀선'] },
+            '배정길': { aliases: ['이금자'] }, '이해경': { aliases: [] },
+            '황상호': { aliases: [] }, '곽상태': { aliases: [] },
+            '이한욱': { aliases: ['정미숙'] }
+        };
+        const ALL_MEMBER_NAMES = Object.keys(MEMBERS);
+
+        // =================================================================================
+        // 초기화 및 데이터 로딩
+        // =================================================================================
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        function initializeApp() {
+            loadData();
+            normalizeData();
+            updateCurrentDate();
+            setupEventListeners();
+            showPage(0); // 초기 페이지 설정
+            showInitialNotice();
+        }
+
+        function loadData() {
+            if (typeof window.jotData !== 'undefined') {
+                allTransactionData = JSON.parse(JSON.stringify(window.jotData.transactions || []));
+                notices = JSON.parse(JSON.stringify(window.jotData.notices || []));
+                console.log('데이터 로드 성공 (data.js)');
+            } else {
+                console.warn("data.js 로딩 실패. localStorage 또는 샘플 데이터로 대체합니다.");
+                allTransactionData = getSampleData();
+                notices = loadFromLocalStorage('notices');
+            }
+            meetings = loadFromLocalStorage('meetings');
+            receipts = loadFromLocalStorage('receipts');
+        }
+
+        function normalizeData() {
+            const nameMap = {};
+            for (const [name, { aliases }] of Object.entries(MEMBERS)) {
+                aliases.forEach(alias => { nameMap[alias] = name; });
+            }
+            allTransactionData.forEach(item => {
+                const alias = Object.keys(nameMap).find(a => item.기재내용.includes(a) || (item.메모 && item.메모.includes(a)));
+                if (alias) item.기재내용 = nameMap[alias];
+            });
+            allTransactionData.sort((a, b) => b['No.'] - a['No.']);
+            notices.sort((a, b) => b.id - a.id);
+        }
+
+        // =================================================================================
+        // 렌더링 및 UI 업데이트
+        // =================================================================================
+        function renderCurrentPage() {
+            const pageNum = parseInt(document.querySelector('.tab-btn.active').dataset.page);
+            showPage(pageNum, false);
+        }
+
+        function updateCurrentDate() {
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+        }
+
+        function renderAllTransactions() {
+            const tbody = document.getElementById('allTransactions');
+            tbody.innerHTML = '';
+            const paginatedData = allTransactionData.slice(currentPage * ITEMS_PER_PAGE, (currentPage + 1) * ITEMS_PER_PAGE);
+            paginatedData.forEach(item => {
+                const isDeposit = item.맡기신금액 > 0;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${formatDate(item.거래일시)}</td>
+                        <td>${item.기재내용}</td>
+                        <td class="amount ${isDeposit ? 'deposit' : 'withdrawal'}">${isDeposit ? '+' : '-'}${formatNumber(isDeposit ? item.맡기신금액 : item.찾으신금액)}원</td>
+                        <td class="amount balance">${formatNumber(item['거래후 잔액'])}원</td>
+                    </tr>`;
+            });
+            document.getElementById('pageIndicator').textContent = `${currentPage + 1} / ${Math.ceil(allTransactionData.length / ITEMS_PER_PAGE)}`;
+            document.getElementById('prevPageBtn').disabled = currentPage === 0;
+            document.getElementById('nextPageBtn').disabled = currentPage >= Math.ceil(allTransactionData.length / ITEMS_PER_PAGE) - 1;
+        }
+
+        function renderSummary() {
+            const totalDeposit = allTransactionData.reduce((sum, item) => sum + (item.맡기신금액 || 0), 0);
+            const totalWithdrawal = allTransactionData.reduce((sum, item) => sum + (item.찾으신금액 || 0), 0);
+            const currentBalance = allTransactionData.length > 0 ? (allTransactionData[0]['거래후 잔액'] || 0) : 0;
+            document.getElementById('totalDeposit').textContent = formatNumber(totalDeposit) + '원';
+            document.getElementById('totalWithdrawal').textContent = formatNumber(totalWithdrawal) + '원';
+            document.getElementById('currentBalance').textContent = formatNumber(currentBalance) + '원';
+            document.getElementById('totalTransactions').textContent = allTransactionData.length + '건';
+        }
+
+        // =================================================================================
+        // 기능별 구현
+        // =================================================================================
+        function calculateUnpaidAmounts() {
+            const standardAmount = 960000, specialAmount = 600000;
+            const memberTotals = {};
+            ALL_MEMBER_NAMES.forEach(name => memberTotals[name] = 0);
+            allTransactionData.forEach(item => {
+                if (item.맡기신금액 > 0 && ALL_MEMBER_NAMES.includes(item.기재내용)) {
+                    memberTotals[item.기재내용] += item.맡기신금액;
+                }
+            });
+            const unpaidList = document.getElementById('unpaidList');
+            unpaidList.innerHTML = '';
+            ALL_MEMBER_NAMES.forEach(member => {
+                const unpaid = (member === '곽상태' ? specialAmount : standardAmount) - memberTotals[member];
+                if (unpaid > 0) {
+                    unpaidList.innerHTML += `<div class="unpaid-item flex justify-between"><span>👤 ${member}</span> <span class="text-red-400">${formatNumber(unpaid)}원</span></div>`;
+                }
+            });
+            if (!unpaidList.innerHTML) unpaidList.innerHTML = `<div class="summary-item text-center"><i class="fas fa-check-circle text-green-400 text-2xl"></i><p>모든 회원 정상 납부!</p></div>`;
+        }
+
+        function createYearlyChart(year) {
+            const ctx = document.getElementById('yearlyChart').getContext('2d');
+            if (yearlyChart) yearlyChart.destroy();
+            const filtered = year === 'all' ? allTransactionData : allTransactionData.filter(i => parseYear(i.거래일시) === parseInt(year));
+            const monthlyData = Array(12).fill(0).map(() => ({ deposit: 0, withdrawal: 0 }));
+            filtered.forEach(i => {
+                const month = parseInt(i.거래일시.split('.')[1]) - 1;
+                if (month >= 0 && month < 12) {
+                    monthlyData[month].deposit += i.맡기신금액 || 0;
+                    monthlyData[month].withdrawal += i.찾으신금액 || 0;
+                }
+            });
+            yearlyChart = new Chart(ctx, { type: 'bar', data: { labels: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), datasets: [{ label: '입금', data: monthlyData.map(d => d.deposit), backgroundColor: 'rgba(81, 207, 102, 0.8)' }, { label: '지출', data: monthlyData.map(d => d.withdrawal), backgroundColor: 'rgba(255, 107, 107, 0.8)' }] }, options: getChartOptions() });
+            updateYearlyStats(year, filtered);
+        }
+
+        function updateYearlyStats(year, filtered) {
+            const totalDeposit = filtered.reduce((s, i) => s + (i.맡기신금액 || 0), 0);
+            const totalWithdrawal = filtered.reduce((s, i) => s + (i.찾으신금액 || 0), 0);
+            document.getElementById('yearlyStats').innerHTML = `<div class="summary-grid"><div class="summary-item"><div class="text-xs">${year === 'all' ? '전체' : year} 입금</div><div class="text-green-400 font-bold">${formatNumber(totalDeposit)}원</div></div><div class="summary-item"><div class="text-xs">${year === 'all' ? '전체' : year} 지출</div><div class="text-red-400 font-bold">${formatNumber(totalWithdrawal)}원</div></div></div>`;
+        }
+
+        function showMemberData(member) {
+            document.getElementById('memberStats').classList.remove('hidden');
+            const tbody = document.getElementById('memberTransactions');
+            const filtered = allTransactionData.filter(item => item.기재내용 === member || (member === '@이자' && item.기재내용.includes('이자')));
+            const totalAmount = filtered.reduce((s, i) => s + (i.맡기신금액 || 0), 0);
+            document.getElementById('memberTotalAmount').textContent = formatNumber(totalAmount) + '원';
+            document.getElementById('memberTotalCount').textContent = filtered.filter(i => i.맡기신금액 > 0).length + '회';
+            tbody.innerHTML = '';
+            filtered.forEach(item => {
+                tbody.innerHTML += `<tr><td>${formatDate(item.거래일시)}</td><td>${item.기재내용}</td><td class="amount deposit">+${formatNumber(item.맡기신금액)}원</td><td>${item.메모 || ''}</td></tr>`;
+            });
+        }
+
+        function renderExpenseCharts() {
+            const expenseData = allTransactionData.filter(i => i.찾으신금액 > 0);
+            const monthlyExpenses = Array(12).fill(0);
+            const categoryExpenses = {};
+
+            expenseData.forEach(item => {
+                const month = parseInt(item.거래일시.split('.')[1]) - 1;
+                if (month >= 0 && month < 12) monthlyExpenses[month] += item.찾으신금액;
+                let category = '기타';
+                if (item.기재내용.includes('정규모임')) category = '정규모임';
+                else if (item.기재내용.includes('경조사')) category = '경조사';
+                categoryExpenses[category] = (categoryExpenses[category] || 0) + item.찾으신금액;
+            });
+
+            if (expenseBarChart) expenseBarChart.destroy();
+            expenseBarChart = new Chart(document.getElementById('expenseBarChart').getContext('2d'), { type: 'bar', data: { labels: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), datasets: [{ label: '월별 지출', data: monthlyExpenses, backgroundColor: '#ff9f43' }] }, options: getChartOptions() });
+
+            if (expenseDoughnutChart) expenseDoughnutChart.destroy();
+            expenseDoughnutChart = new Chart(document.getElementById('expenseDoughnutChart').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(categoryExpenses), datasets: [{ data: Object.values(categoryExpenses), backgroundColor: ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1'] }] }, options: getChartOptions(false) });
+        }
+
+        function renderExpenseDetails(type) {
+            const detailsContainer = document.getElementById('expenseDetails');
+            detailsContainer.innerHTML = '';
+            const expenseData = allTransactionData.filter(i => i.찾으신금액 > 0);
+            let grouped = {};
+            if (type === 'monthly') {
+                expenseData.forEach(item => {
+                    const month = `${parseYear(item.거래일시)}년 ${item.거래일시.split('.')[1]}월`;
+                    if (!grouped[month]) grouped[month] = [];
+                    grouped[month].push(item);
+                });
+            } else { // category
+                expenseData.forEach(item => {
+                    let category = '기타';
+                    if (item.기재내용.includes('정규모임')) category = '정규모임';
+                    else if (item.기재내용.includes('경조사')) category = '경조사';
+                    if (!grouped[category]) grouped[category] = [];
+                    grouped[category].push(item);
+                });
+            }
+
+            for (const [group, items] of Object.entries(grouped)) {
+                let tableRows = items.map(i => `<tr><td>${formatDate(i.거래일시)}</td><td>${i.기재내용}</td><td>${formatNumber(i.찾으신금액)}원</td><td>${i.메모 || ''}</td></tr>`).join('');
+                detailsContainer.innerHTML += `<h3 class="text-md font-bold mt-4 mb-2">${group}</h3><table class="transaction-table">${tableRows}</table>`;
+            }
+        }
+
+        // 데이터 관리 (업데이트/수정)
+        function openUpdateModal() { document.getElementById('updateModal').classList.remove('hidden'); }
+        function closeUpdateModal() {
+            document.getElementById('updateModal').classList.add('hidden');
+            document.getElementById('passwordArea').classList.remove('hidden');
+            document.getElementById('dataArea').classList.add('hidden');
+            document.getElementById('updatePassword').value = '';
+            isPasswordVerified = false;
+        }
+        function checkPassword() {
+            if (document.getElementById('updatePassword').value === '5691') {
+                isPasswordVerified = true;
+                document.getElementById('passwordArea').classList.add('hidden');
+                document.getElementById('dataArea').classList.remove('hidden');
+                showUpdateTab('paste');
+            } else {
+                alert('코드가 올바르지 않습니다.');
+            }
+        }
+        function showUpdateTab(tab) {
+            document.getElementById('pasteArea').classList.toggle('hidden', tab !== 'paste');
+            document.getElementById('editArea').classList.toggle('hidden', tab !== 'edit');
+            document.getElementById('pasteDataTab').classList.toggle('active', tab === 'paste');
+            document.getElementById('editDataTab').classList.toggle('active', tab === 'edit');
+            if (tab === 'edit') renderUpdateTransactionList();
+        }
+        function renderUpdateTransactionList() {
+            const tbody = document.getElementById('updateTransactionList');
+            tbody.innerHTML = '';
+            allTransactionData.forEach((item, index) => {
+                const isDeposit = item.맡기신금액 > 0;
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${formatDate(item.거래일시)}</td>
+                        <td>${item.기재내용}</td>
+                        <td class="amount ${isDeposit ? 'deposit' : 'withdrawal'}">${isDeposit ? '+' : '-'}${formatNumber(isDeposit ? item.맡기신금액 : item.찾으신금액)}</td>
+                        <td><button class="update-btn-small" onclick="editTransaction(${index})">수정</button></td>
+                    </tr>`;
+            });
+        }
+        
+        function processUpdateFromPaste() {
+            const data = document.getElementById('updateData').value.trim();
+            if (!data) return;
+            try {
+                const newItems = parseCSV(data);
+                if (newItems.length > 0) {
+                    updateTransactionData(newItems);
+                }
+            } catch (error) { alert('데이터 처리 중 오류 발생: ' + error.message); }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const newItems = parseCSV(e.target.result);
+                    if (newItems.length > 0) {
+                        updateTransactionData(newItems);
+                    } else {
+                        alert('파일에서 새로운 거래내역을 찾지 못했습니다.');
+                    }
+                } catch (error) {
+                    alert(`파일 처리 중 오류 발생: ${error.message}`);
+                }
+            };
+            reader.readAsText(file, 'EUC-KR'); // 엑셀 CSV 기본 인코딩
+        }
+
+        function parseCSV(csvData) {
+            const lines = csvData.split('\n').filter(line => line.trim());
+            return lines.map(line => {
+                const parts = line.split(',').map(p => p.trim());
+                let content = parts[2];
+                const alias = Object.keys(MEMBERS).find(name => MEMBERS[name].aliases.includes(content));
+                if (alias) content = alias;
+                return { "No.": parseInt(parts[0]), "거래일시": parts[1], "기재내용": content, "찾으신금액": parseFloat(parts[3]) || 0, "맡기신금액": parseFloat(parts[4]) || 0, "거래후 잔액": parseFloat(parts[5]) || 0, "메모": parts[6] || "" };
+            });
+        }
+
+        function updateTransactionData(newItems) {
+            const existingEntries = new Set(allTransactionData.map(item => `${item.거래일시}_${item.기재내용}`));
+            const uniqueNewItems = newItems.filter(item => !existingEntries.has(`${item.거래일시}_${item.기재내용}`));
+
+            if (uniqueNewItems.length > 0) {
+                allTransactionData = [...uniqueNewItems, ...allTransactionData];
+                normalizeData();
+                showDataUpdateModal(generateNewDataFileContent());
+                alert(`${uniqueNewItems.length}개의 새로운 거래내역이 추가되었습니다. data.js 파일을 업데이트하세요.`);
+                renderCurrentPage();
+                closeUpdateModal();
+            } else {
+                alert("새로운 거래 내역이 없습니다.");
+            }
+        }
+
+        function editTransaction(index) {
+            editingIndex = index;
+            const item = allTransactionData[index];
+            document.getElementById('editNo').value = item['No.'];
+            document.getElementById('editDate').value = item.거래일시;
+            document.getElementById('editContent').value = item.기재내용;
+            document.getElementById('editMemo').value = item.메모;
+            document.getElementById('editWithdrawal').value = item.찾으신금액 || 0;
+            document.getElementById('editDeposit').value = item.맡기신금액 || 0;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+        function saveEdit() {
+            if (editingIndex === -1) return;
+            const item = allTransactionData[editingIndex];
+            item.거래일시 = document.getElementById('editDate').value;
+            item.기재내용 = document.getElementById('editContent').value;
+            item.메모 = document.getElementById('editMemo').value;
+            item.찾으신금액 = parseFloat(document.getElementById('editWithdrawal').value) || 0;
+            item.맡기신금액 = parseFloat(document.getElementById('editDeposit').value) || 0;
+            normalizeData();
+            renderCurrentPage();
+            renderUpdateTransactionList();
+            cancelEdit();
+            showDataUpdateModal(generateNewDataFileContent());
+            alert('수정이 완료되었습니다. data.js 파일을 업데이트하세요.');
+        }
+        function cancelEdit() {
+            editingIndex = -1;
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        // 로컬 스토리지 및 데이터 파일 업데이트 안내
+        function loadFromLocalStorage(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
+        function saveToLocalStorage(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+
+        function showDataUpdateModal(newContent) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.zIndex = '1001'; // 다른 모달 위에 표시
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3 class="text-lg font-bold mb-4">데이터 업데이트 필요</h3>
+                    <p class="mb-4">아래 내용을 복사하여 <strong>data.js</strong> 파일 전체에 덮어쓰세요.</p>
+                    <textarea class="input-field" style="height: 200px; font-size: 0.7rem;" readonly>${newContent}</textarea>
+                    <div class="flex gap-2 mt-4">
+                        <button class="btn-primary flex-1" onclick="navigator.clipboard.writeText(this.previousElementSibling.value); alert('복사되었습니다!');">복사</button>
+                        <button class="btn-primary flex-1" onclick="this.closest('.modal').remove()">닫기</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        }
+
+        function generateNewDataFileContent() {
+            const dataToSave = {
+                transactions: allTransactionData,
+                notices: notices
+            };
+            return `window.jotData = ${JSON.stringify(dataToSave, null, 4)};`;
+        }
+
+        function loadReceipts() {
+            receipts = loadFromLocalStorage('receipts');
+            const list = document.getElementById('receiptList');
+            list.innerHTML = '';
+            receipts.forEach(r => {
+                list.innerHTML += `<div class="receipt-item" onclick="viewReceipt('${r.dataUrl}')"><div class="font-bold">${r.name}</div><div class="text-sm text-gray-400">등록자: ${r.user} | ${r.date}</div></div>`;
+            });
+        }
+        function handleReceiptUpload(event) {
+            const file = event.target.files[0];
+            const user = prompt("등록자 이름을 입력하세요:", "");
+            if (!file || !user) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                receipts.unshift({ id: Date.now(), name: file.name, user, date: new Date().toLocaleString('ko-KR'), dataUrl: e.target.result });
+                saveToLocalStorage('receipts', receipts);
+                loadReceipts();
+                addNotice(user, `${user}님이 영수증(${file.name})을 등록했습니다.`);
+            };
+            reader.readAsDataURL(file);
+        }
+        function viewReceipt(dataUrl) { window.open(dataUrl, '_blank'); }
+
+        function loadNotices() {
+            const list = document.getElementById('noticeList');
+            list.innerHTML = '';
+            notices.forEach(n => {
+                list.innerHTML += `<div class="notice-item"><div class="flex justify-between items-start mb-2"><div class="text-sm text-gray-400"><b>${n.user}</b> | ${n.date}</div><button onclick="deleteNotice(${n.id})" class="text-red-400"><i class="fas fa-times"></i></button></div><div>${n.content.replace(/\n/g, '<br>')}</div></div>`;
+            });
+        }
+        function addNotice(user, content) {
+            const userVal = user || document.getElementById('noticeUser').value.trim();
+            const contentVal = content || document.getElementById('newNotice').value.trim();
+            if (userVal && contentVal) {
+                notices.unshift({ id: Date.now(), user: userVal, content: contentVal, date: new Date().toLocaleString('ko-KR') });
+                document.getElementById('noticeUser').value = '';
+                document.getElementById('newNotice').value = '';
+                loadNotices();
+                showDataUpdateModal(generateNewDataFileContent());
+            }
+        }
+        function deleteNotice(id) {
+            if (confirm('삭제하시겠습니까?')) {
+                notices = notices.filter(n => n.id !== id);
+                loadNotices();
+                showDataUpdateModal(generateNewDataFileContent());
+            }
+        }
+        function showInitialNotice() {
+            const lastShown = sessionStorage.getItem('lastNoticeShown');
+            if (!lastShown) {
+                const noticeContent = document.getElementById('noticeContent');
+                noticeContent.innerHTML = '';
+                notices.slice(0, 5).forEach(n => {
+                    noticeContent.innerHTML += `<div class="notice-item"><b>${n.user}</b>: ${n.content} <span class="text-xs text-gray-400">(${n.date})</span></div>`;
+                });
+                document.getElementById('noticeModal').classList.remove('hidden');
+                sessionStorage.setItem('lastNoticeShown', 'true');
+            }
+        }
+
+        function loadMeetings() {
+            meetings = loadFromLocalStorage('meetings');
+            const list = document.getElementById('meetingList');
+            list.innerHTML = '';
+            meetings.forEach(m => {
+                list.innerHTML += `<div class="meeting-item"><div class="flex justify-between items-start mb-2"><div class="text-sm text-gray-400"><b>${m.user}</b> | ${m.created}</div><button onclick="deleteMeeting(${m.id})" class="text-red-400"><i class="fas fa-times"></i></button></div><div class="font-bold mb-2">📅 ${m.date}</div><div class="mb-2">📍 ${m.place}</div><div>📝 ${m.description.replace(/\n/g, '<br>')}</div></div>`;
+            });
+        }
+        function addMeeting() {
+            const user = document.getElementById('meetingUser').value.trim();
+            const date = document.getElementById('meetingDate').value;
+            const place = document.getElementById('meetingPlace').value.trim();
+            const description = document.getElementById('meetingDescription').value.trim();
+            if (!user || !date || !place) {
+                alert('등록자, 모임 날짜, 장소를 모두 입력하세요.');
+                return;
+            }
+            const newMeeting = { id: Date.now(), user, date: new Date(date).toLocaleString('ko-KR'), place, description: description || '정규모임', created: new Date().toLocaleString('ko-KR') };
+            meetings.unshift(newMeeting);
+            saveToLocalStorage('meetings', meetings);
+            ['meetingUser', 'meetingDate', 'meetingPlace', 'meetingDescription'].forEach(id => document.getElementById(id).value = '');
+            loadMeetings();
+            addNotice(user, `${user}님이 모임(${newMeeting.date} at ${newMeeting.place})을 등록했습니다.`);
+            showMeetingPopup(newMeeting);
+        }
+        function deleteMeeting(id) {
+            if (confirm('삭제하시겠습니까?')) {
+                meetings = meetings.filter(m => m.id !== id);
+                saveToLocalStorage('meetings', meetings);
+                loadMeetings();
+            }
+        }
+        function showMeetingPopup(meeting) {
+            const content = document.getElementById('meetingContent');
+            content.innerHTML = `<div class="meeting-item"><p><strong>🗓️ 일시:</strong> ${meeting.date}</p><p><strong>📍 장소:</strong> ${meeting.place}</p><p><strong>📝 내용:</strong> ${meeting.description}</p></div>`;
+            document.getElementById('meetingModal').classList.remove('hidden');
+        }
+
+        // =================================================================================
+        // 이벤트 핸들러 및 헬퍼
+        // =================================================================================
+        function setupEventListeners() {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', handleTabClick));
+            document.querySelectorAll('.year-btn').forEach(btn => btn.addEventListener('click', e => {
+                document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                createYearlyChart(e.currentTarget.dataset.year);
+            }));
+            document.querySelectorAll('.member-btn').forEach(btn => btn.addEventListener('click', e => {
+                document.querySelectorAll('.member-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                showMemberData(e.currentTarget.dataset.member);
+            }));
+            document.querySelectorAll('.category-btn').forEach(btn => btn.addEventListener('click', e => {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                renderExpenseDetails(e.currentTarget.dataset.expenseType);
+            }));
+            document.getElementById('prevPageBtn').addEventListener('click', () => { if (currentPage > 0) { currentPage--; renderAllTransactions(); } });
+            document.getElementById('nextPageBtn').addEventListener('click', () => { if (currentPage < Math.ceil(allTransactionData.length / ITEMS_PER_PAGE) - 1) { currentPage++; renderAllTransactions(); } });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAllModals(); } });
+        }
+
+        function handleTabClick(e) {
+            const pageNum = parseInt(e.currentTarget.dataset.page);
+            showPage(pageNum);
+        }
+
+        function showPage(pageNum, switchTabs = true) {
+            if (switchTabs) {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`.tab-btn[data-page="${pageNum}"]`).classList.add('active');
+                hideAllFloatingButtons();
+            }
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelector(`.page[data-page="${pageNum}"]`).classList.add('active');
+
+            switch (pageNum) {
+                case 0: renderAllTransactions(); renderSummary(); break;
+                case 1: document.getElementById('yearButtons').classList.remove('hidden'); createYearlyChart('all'); break;
+                case 2: document.getElementById('memberButtons').classList.remove('hidden'); showMemberData('김봉철'); break;
+                case 3: document.getElementById('expenseButtons').classList.remove('hidden'); renderExpenseCharts(); renderExpenseDetails('monthly'); break;
+                case 4: calculateUnpaidAmounts(); break;
+                case 5: loadReceipts(); break;
+                case 6: loadNotices(); break;
+                case 7: loadMeetings(); break;
+            }
+        }
+
+        function hideAllFloatingButtons() {
+            ['yearButtons', 'memberButtons', 'expenseButtons'].forEach(id => document.getElementById(id).classList.add('hidden'));
+        }
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+            cancelEdit();
+            closeUpdateModal();
+        }
+        function closeNoticeModal() { document.getElementById('noticeModal').classList.add('hidden'); }
+        function closeMeetingModal() { document.getElementById('meetingModal').classList.add('hidden'); }
+
+        function formatDate(dateStr) {
+            try {
+                const [y, m, d] = dateStr.split('.');
+                return `${parseYear(dateStr)}년 ${m}월 ${d}일`;
+            } catch { return dateStr; }
+        }
+        function parseYear(dateStr) {
+            const yearPart = parseInt(dateStr.split('.')[0]);
+            return yearPart >= 70 ? 1900 + yearPart : 2000 + yearPart;
+        }
+        function formatNumber(num) { return new Intl.NumberFormat('ko-KR').format(num); }
+        function getChartOptions(showYAxis = true) {
+            return {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: 'white' } } },
+                scales: {
+                    y: { display: showYAxis, beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                    x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                }
+            };
+        }
+    </script>
+</body>
+</html>
