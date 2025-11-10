@@ -182,6 +182,13 @@
             text-align: center;
         }
 
+        .hero-balance {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #60a5fa;
+            text-shadow: 0 0 20px rgba(96,165,250,0.5);
+        }
+
         .hidden { display: none !important; }
 
         .floating-buttons {
@@ -350,9 +357,57 @@
         .edit-form input::placeholder {
             color: rgba(255,255,255,0.5);
         }
+
+        /* 로그인 오버레이 */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .login-box {
+            width: 90%;
+            max-width: 420px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 16px;
+            padding: 1rem;
+        }
+        .login-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
+    <!-- 로그인 오버레이 -->
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h3 class="text-lg font-bold mb-2">🔐 회원 확인</h3>
+            <p class="text-xs text-gray-300">본인 이름을 입력하세요.</p>
+            <div class="mt-2">
+                <input type="text" id="loginNameInput" class="input-field" placeholder="이름 입력">
+                <button class="btn-primary w-full" onclick="tryLoginFromInput()">로그인</button>
+            </div>
+
+    <!-- 리스트 팝업 모달 -->
+    <div id="listModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 420px; width: 90%;">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold" id="listModalTitle">📋 상세 내역</h3>
+                <button onclick="document.getElementById('listModal').classList.add('hidden')" class="text-white text-xl hover:text-red-400">&times;</button>
+            </div>
+            <div class="content-scroll" id="listModalBody" style="max-height: 60vh;"></div>
+        </div>
+    </div>
+            <div id="loginError" class="text-red-400 text-xs mt-2"></div>
+        </div>
+    </div>
     <!-- 공지사항 팝업 -->
     <div id="noticeModal" class="modal hidden">
         <div class="modal-content">
@@ -454,9 +509,11 @@
         <div class="glass-card p-3 text-center mb-3">
             <div class="update-title">
                 <h1 class="text-lg font-black flex-1"><i class="fas fa-coins mr-2 text-yellow-400"></i>사이좋계 거래내역</h1>
-                <button class="update-btn-small" onclick="openUpdateModal()"><i class="fas fa-sync-alt"></i> 관리</button>
+                <button id="manageBtn" class="update-btn-small" style="display:none;" onclick="openUpdateModal()"><i class="fas fa-sync-alt"></i> 관리</button>
+                <button class="update-btn-small ml-2" onclick="logout()"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
             </div>
             <div class="text-sm text-gray-300 mt-1" id="currentDate"></div>
+            <div class="text-sm text-gray-200 mt-1" id="currentMember">사이좋계 회원: -</div>
         </div>
 
         <!-- Tab Navigation -->
@@ -471,7 +528,7 @@
                 <button class="tab-btn" data-page="4">미납금</button>
                 <button class="tab-btn" data-page="5">영수증</button>
                 <button class="tab-btn" data-page="6">공지</button>
-                <button class="tab-btn" data-page="7">모임</button>
+                <button class="tab-btn" data-page="7">공지등록</button>
             </div>
         </div>
 
@@ -485,6 +542,7 @@
             <!-- Page 0: 전체 -->
             <div class="page active" data-page="0">
                 <h2 class="text-lg font-bold mb-3">💰 전체 거래내역</h2>
+                <div class="hero-balance mb-2 text-center" id="mainPageBalance">0원</div>
                 <div class="summary-grid"><div class="summary-item"><div class="text-xs text-gray-300">총 입금</div><div class="text-green-400 font-bold" id="totalDeposit">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">총 지출</div><div class="text-red-400 font-bold" id="totalWithdrawal">0원</div></div></div>
                 <div class="summary-grid"><div class="summary-item"><div class="text-xs text-gray-300">현재 잔액</div><div class="text-blue-400 font-bold" id="currentBalance">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">거래 건수</div><div class="text-white font-bold" id="totalTransactions">0건</div></div></div>
                 <div class="content-scroll" id="allTransactionsContainer"><table class="transaction-table"><thead><tr><th>날짜</th><th>내용</th><th>금액</th><th>잔액</th></tr></thead><tbody id="allTransactions"></tbody></table></div>
@@ -497,25 +555,54 @@
             <!-- Page 2: 회원별 -->
             <div class="page" data-page="2"><h2 class="text-lg font-bold mb-3">👥 회원별 현황</h2><div id="memberStats" class="summary-grid hidden"><div class="summary-item"><div class="text-xs text-gray-300">총 입금액</div><div class="text-green-400 font-bold" id="memberTotalAmount">0원</div></div><div class="summary-item"><div class="text-xs text-gray-300">입금 횟수</div><div class="text-blue-400 font-bold" id="memberTotalCount">0회</div></div></div><div class="content-scroll"><table class="transaction-table"><thead><tr><th>날짜</th><th>내용</th><th>금액</th><th>메모</th></tr></thead><tbody id="memberTransactions"></tbody></table></div></div>
 
-            <!-- Page 3: 지출 -->
-            <div class="page" data-page="3"><h2 class="text-lg font-bold mb-3">💸 지출 분석</h2><div class="grid grid-cols-2 gap-4"><div class="chart-container" style="height: 150px;"><canvas id="expenseBarChart"></canvas></div><div class="chart-container" style="height: 150px;"><canvas id="expenseDoughnutChart"></canvas></div></div><div class="content-scroll" id="expenseDetails"></div></div>
+            <!-- Page 3: 지출 (그래프 + 상세 리스트) -->
+            <div class="page" data-page="3">
+                <h2 class="text-lg font-bold mb-3">💸 지출 분석</h2>
+                <div class="chart-container" style="height: 200px;"><canvas id="expenseBarChart"></canvas></div>
+                <div class="chart-container" style="height: 360px;"><canvas id="expenseDoughnutChart"></canvas></div>
+                <div class="content-scroll" id="expenseDetails"></div>
+            </div>
 
             <!-- Page 4: 미납금 -->
-            <div class="page" data-page="4"><h2 class="text-lg font-bold mb-3">⚠️ 미납금 현황</h2><p class="text-xs text-gray-400 mb-3">(2025년 8월 기준, 자동이체 시 금월분 제외)</p><div class="content-scroll" id="unpaidList"></div></div>
+            <div class="page" data-page="4"><h2 class="text-lg font-bold mb-3">⚠️ 미납금 현황</h2><p class="text-xs text-gray-400 mb-3" id="unpaidSubtitle"></p><div class="content-scroll" id="unpaidList"></div></div>
 
             <!-- Page 5: 영수증 -->
             <div class="page" data-page="5"><h2 class="text-lg font-bold mb-3">📷 영수증 관리</h2><div class="content-scroll"><button class="btn-primary w-full mb-4" onclick="document.getElementById('receiptUpload').click()">영수증 등록</button><input type="file" id="receiptUpload" accept="image/*" style="display: none;" onchange="handleReceiptUpload(event)"><div id="receiptList"></div></div></div>
 
-            <!-- Page 6: 공지 -->
-            <div class="page" data-page="6"><h2 class="text-lg font-bold mb-3">📢 공지사항</h2><div class="content-scroll"><div class="mb-4"><input type="text" id="noticeUser" class="input-field" placeholder="등록자 이름"><textarea id="newNotice" class="input-field h-24" placeholder="새 공지사항을 입력하세요..."></textarea><button class="btn-primary mt-2 w-full" onclick="addNotice()"><i class="fas fa-megaphone mr-2"></i>공지 등록</button></div><div id="noticeList"></div></div></div>
+            <!-- Page 6: 공지(최신 1건만 표시) -->
+            <div class="page" data-page="6"><h2 class="text-lg font-bold mb-3">📢 공지사항</h2><div class="content-scroll"><div id="latestNotice" class="notice-item"></div></div></div>
 
-            <!-- Page 7: 모임 -->
-            <div class="page" data-page="7"><h2 class="text-lg font-bold mb-3">📅 모임 일정</h2><div class="content-scroll"><div class="calendar-container"><input type="text" id="meetingUser" class="input-field mb-2" placeholder="등록자 이름"><input type="datetime-local" id="meetingDate" class="input-field mb-2"><input type="text" id="meetingPlace" class="input-field mb-2" placeholder="모임 장소를 입력하세요..."><textarea id="meetingDescription" class="input-field h-16" placeholder="모임 설명을 입력하세요..."></textarea><button class="btn-primary w-full mt-2" onclick="addMeeting()"><i class="fas fa-calendar-plus mr-2"></i>모임 등록</button></div><div id="meetingList"></div></div></div>
+            <!-- Page 7: 공지 등록 -->
+            <div class="page" data-page="7">
+                <h2 class="text-lg font-bold mb-3">📝 공지 등록</h2>
+                <div class="content-scroll">
+                    <div class="mb-4">
+                        <input type="text" id="noticeUser" class="input-field" placeholder="등록자 이름">
+                        <textarea id="newNotice" class="input-field h-24" placeholder="새 공지사항을 입력하세요..."></textarea>
+                        <button class="btn-primary mt-2 w-full" onclick="addNotice()"><i class="fas fa-megaphone mr-2"></i>공지 등록</button>
+                    </div>
+
+                    <button id="toggleMeetingFormBtn" class="btn-primary w-full mb-2" onclick="toggleMeetingForm()">모임 등록</button>
+                    <div id="meetingFormContainer" class="calendar-container hidden">
+                        <input type="text" id="meetingUser" class="input-field mb-2" placeholder="등록자 이름">
+                        <input type="datetime-local" id="meetingDate" class="input-field mb-2">
+                        <input type="text" id="meetingPlace" class="input-field mb-2" placeholder="모임 장소를 입력하세요...">
+                        <textarea id="meetingDescription" class="input-field h-16" placeholder="모임 설명을 입력하세요..."></textarea>
+                        <button class="btn-primary w-full mt-2" onclick="addMeeting()"><i class="fas fa-calendar-plus mr-2"></i>모임 등록</button>
+                    </div>
+
+                    <button id="togglePrevMeetingsBtn" class="btn-primary w-full mb-2" onclick="togglePreviousMeetings()">이전 모임 보기</button>
+                    <div id="meetingList" class="hidden"></div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <script src="./logs.js"></script>
     <script src="./data.js"></script>
     <script>
+        // 서버 API 기본 주소 (동일 도메인 사용, 파일로 열렸다면 localhost:3000)
+        const API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
         // =================================================================================
         // 전역 변수, 상수 및 상태 관리
         // =================================================================================
@@ -528,6 +615,7 @@
         const ITEMS_PER_PAGE = 20; // 전체 뷰의 페이지당 항목 수
 
         let yearlyChart, expenseBarChart, expenseDoughnutChart;
+        let selectedExpenseCategory = null;
         let editingIndex = -1;
         let isPasswordVerified = false;
 
@@ -549,8 +637,63 @@
             normalizeData();
             updateCurrentDate();
             setupEventListeners();
-            showPage(0); // 초기 페이지 설정
+            setupLoginOverlay();
+            enforceLogin();
+            updateManageVisibility();
+            updateCurrentMemberDisplay();
+            showPage(0); // 초기 페이지 설정 (오버레이가 가립니다)
             showInitialNotice();
+        }
+
+        function setupLoginOverlay() {
+            // 이름 입력만 사용하므로 버튼 그리드가 없을 수 있음
+            const btnWrap = document.getElementById('loginMemberButtons');
+            if (!btnWrap) return;
+            btnWrap.innerHTML = '';
+        }
+        function enforceLogin() {
+            const current = sessionStorage.getItem('memberName');
+            if (!current || !ALL_MEMBER_NAMES.includes(current)) {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        }
+        function handleLogin(name) {
+            if (ALL_MEMBER_NAMES.includes(name)) {
+                sessionStorage.setItem('memberName', name);
+                document.getElementById('loginOverlay').style.display = 'none';
+                updateManageVisibility();
+                updateCurrentMemberDisplay();
+                // 기본으로 회원별 탭에 본인 데이터 표시 가능
+                // showPage(2); showMemberData(name);
+            } else {
+                const err = document.getElementById('loginError');
+                err.textContent = '사이좋계 회원이 아닙니다. 가족이면 남편의 이름으로 로그인하세요.';
+                alert('사이좋계 회원이 아닙니다.\n가족이면 남편의 이름으로 로그인하세요.');
+            }
+        }
+        function tryLoginFromInput() {
+            const v = (document.getElementById('loginNameInput').value || '').trim();
+            handleLogin(v);
+        }
+        function logout() {
+            sessionStorage.removeItem('memberName');
+            document.getElementById('loginOverlay').style.display = 'flex';
+            updateManageVisibility();
+            updateCurrentMemberDisplay();
+        }
+
+        function updateManageVisibility() {
+            const btn = document.getElementById('manageBtn');
+            if (!btn) return;
+            const current = sessionStorage.getItem('memberName');
+            btn.style.display = current === '김봉정' ? 'inline-block' : 'none';
+        }
+
+        function updateCurrentMemberDisplay() {
+            const el = document.getElementById('currentMember');
+            if (!el) return;
+            const name = sessionStorage.getItem('memberName');
+            el.textContent = `사이좋계 회원: ${name && ALL_MEMBER_NAMES.includes(name) ? name : '-'}`;
         }
 
         function loadData() {
@@ -578,6 +721,33 @@
             });
             allTransactionData.sort((a, b) => b['No.'] - a['No.']);
             notices.sort((a, b) => b.id - a.id);
+        }
+
+        // 지출 카테고리 판별 및 상세 팝업 헬퍼
+        function getExpenseCategory(text) {
+            if (!text) return '기타';
+            if (text.includes('정규모임')) return '정규모임';
+            if (text.includes('경조사')) return '경조사';
+            if (text.includes('숙소')) return '숙소비';
+            return '기타';
+        }
+        function openCategoryDetails(category) {
+            const year = new Date().getFullYear();
+            const items = allTransactionData.filter(i => i.찾으신금액 > 0 && parseYear(i.거래일시) === year && getExpenseCategory(i.기재내용) === category);
+            const container = document.getElementById('expenseDetails');
+            if (!container) return;
+            if (!items.length) {
+                container.innerHTML = `<div class="summary-item text-center">${year}년 ${category} 내역이 없습니다.</div>`;
+                return;
+            }
+            const rows = items.map(i => `<tr><td>${formatDate(i.거래일시)}</td><td>${i.기재내용}</td><td class="amount withdrawal">-${formatNumber(i.찾으신금액)}원</td></tr>`).join('');
+            container.innerHTML = `<h3 class="text-md font-bold mt-2 mb-2">${year}년 ${category} 내역</h3><table class="transaction-table"><thead><tr><th>날짜</th><th>항목</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+        function selectExpenseCategory(category) {
+            selectedExpenseCategory = category;
+            try { if (expenseBarChart) expenseBarChart.update(); } catch(_) {}
+            try { if (expenseDoughnutChart) expenseDoughnutChart.update(); } catch(_) {}
+            openCategoryDetails(category);
         }
 
         // =================================================================================
@@ -619,13 +789,34 @@
             document.getElementById('totalWithdrawal').textContent = formatNumber(totalWithdrawal) + '원';
             document.getElementById('currentBalance').textContent = formatNumber(currentBalance) + '원';
             document.getElementById('totalTransactions').textContent = allTransactionData.length + '건';
+            const mpb = document.getElementById('mainPageBalance');
+            if (mpb) mpb.textContent = formatNumber(currentBalance) + '원';
         }
 
         // =================================================================================
         // 기능별 구현
         // =================================================================================
         function calculateUnpaidAmounts() {
-            const standardAmount = 960000, specialAmount = 600000;
+            // 규칙
+            // - 기준 시작월: 2023-01
+            // - 오늘 날짜까지의 총 개월 수 × 월 회비(기본 3만원, 곽상태 2만원)
+            // - 실제 입금 총액이 기대액보다 적으면 부족액 = 미납금
+            // - 최근 미납월은 (납부로 충족된 개월 수 다음 달)
+
+            const startYear = 2023;
+            const startMonth = 1; // 1~12
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1; // 1~12
+
+            const totalMonthsFromStart = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
+            const subtitleEl = document.getElementById('unpaidSubtitle');
+            if (subtitleEl) subtitleEl.textContent = `(${currentYear}년 ${currentMonth}월 기준 · 당월분 포함 표기)`;
+
+            // 월 회비
+            const monthlyFee = (name) => name === '곽상태' ? 20000 : 30000;
+
+            // 회원별 총 입금 합계
             const memberTotals = {};
             ALL_MEMBER_NAMES.forEach(name => memberTotals[name] = 0);
             allTransactionData.forEach(item => {
@@ -633,15 +824,72 @@
                     memberTotals[item.기재내용] += item.맡기신금액;
                 }
             });
+
+            // 유틸: 개월 인덱스를 연월로 바꾸고 라벨 생성 (0 = 2023-01)
+            const indexToYearMonth = (idx) => {
+                const y = startYear + Math.floor((startMonth - 1 + idx) / 12);
+                const m = ((startMonth - 1 + idx) % 12) + 1;
+                return { y, m };
+            };
+            const formatYYMMLabel = ({ y, m }) => {
+                const yy = ('' + y).slice(2);
+                const mm = String(m).padStart(2, '0');
+                return `${yy}년 ${mm}월분 미납`;
+            };
+
             const unpaidList = document.getElementById('unpaidList');
             unpaidList.innerHTML = '';
-            ALL_MEMBER_NAMES.forEach(member => {
-                const unpaid = (member === '곽상태' ? specialAmount : standardAmount) - memberTotals[member];
-                if (unpaid > 0) {
-                    unpaidList.innerHTML += `<div class="unpaid-item flex justify-between"><span>👤 ${member}</span> <span class="text-red-400">${formatNumber(unpaid)}원</span></div>`;
+
+            const currentUser = sessionStorage.getItem('memberName');
+            const isAdmin = currentUser === '김봉정';
+            const targetMembers = isAdmin
+                ? ALL_MEMBER_NAMES
+                : ((currentUser && ALL_MEMBER_NAMES.includes(currentUser)) ? [currentUser] : ALL_MEMBER_NAMES);
+
+            targetMembers.forEach(member => {
+                const fee = monthlyFee(member);
+                const expected = totalMonthsFromStart * fee;
+                let paid = memberTotals[member];
+                // 11월 기준: 곽상태는 미납 없음으로 표시
+                if (member === '곽상태' && currentMonth === 11) {
+                    paid = Math.max(paid, expected);
+                }
+                const shortage = Math.max(0, expected - paid);
+
+                if (shortage > 0) {
+                    // 충족된 개월 수와 미납 월 목록(최대 2개월 표시)
+                    const coveredMonths = Math.floor(paid / fee);
+                    const unpaidByMoney = Math.ceil(shortage / fee);
+                    const unpaidByCalendar = Math.max(0, totalMonthsFromStart - coveredMonths);
+                    const unpaidCount = Math.min(unpaidByMoney, unpaidByCalendar);
+                    const firstUnpaidIdx = Math.min(coveredMonths, totalMonthsFromStart - 1);
+                    const lastUnpaidIdx = Math.min(firstUnpaidIdx + unpaidCount - 1, totalMonthsFromStart - 1);
+                    const months = [];
+                    for (let idx = firstUnpaidIdx; idx <= lastUnpaidIdx; idx++) {
+                        months.push(indexToYearMonth(idx));
+                    }
+                    const lastTwo = months.slice(-2);
+                    const labels = lastTwo.map(({ y, m }) => {
+                        const isThisMonth = (y === currentYear && m === currentMonth);
+                        return isThisMonth ? '당월분' : `${String(m).padStart(2,'0')}월`;
+                    }).join(', ');
+
+                    // 표시: 총 미납금 + 최근 최대 2개월 안내
+                    unpaidList.innerHTML += `
+                        <div class="unpaid-item">
+                            <div class="flex justify-between items-center">
+                                <span>👤 ${member}</span>
+                                <span class="text-red-400 font-bold">${formatNumber(shortage)}원</span>
+                            </div>
+                            <div class="text-xs text-gray-300 mt-1">미납금 ${formatNumber(fee)}원 · ${labels}</div>
+                        </div>`;
                 }
             });
-            if (!unpaidList.innerHTML) unpaidList.innerHTML = `<div class="summary-item text-center"><i class="fas fa-check-circle text-green-400 text-2xl"></i><p>모든 회원 정상 납부!</p></div>`;
+
+            if (!unpaidList.innerHTML) {
+                const name = isAdmin ? '모든 회원' : (currentUser && ALL_MEMBER_NAMES.includes(currentUser) ? currentUser : '모든 회원');
+                unpaidList.innerHTML = `<div class="summary-item text-center"><i class="fas fa-check-circle text-green-400 text-2xl"></i><p>${name} 정상 납부!</p></div>`;
+            }
         }
 
         function createYearlyChart(year) {
@@ -666,6 +914,121 @@
             document.getElementById('yearlyStats').innerHTML = `<div class="summary-grid"><div class="summary-item"><div class="text-xs">${year === 'all' ? '전체' : year} 입금</div><div class="text-green-400 font-bold">${formatNumber(totalDeposit)}원</div></div><div class="summary-item"><div class="text-xs">${year === 'all' ? '전체' : year} 지출</div><div class="text-red-400 font-bold">${formatNumber(totalWithdrawal)}원</div></div></div>`;
         }
 
+        // 지출 그래프: 연간 카테고리 합계만 표시 (막대 + 도넛)
+        function renderExpenseCharts() {
+            const year = new Date().getFullYear();
+            const expenseData = allTransactionData.filter(i => i.찾으신금액 > 0 && parseYear(i.거래일시) === year);
+
+            const categories = ['정규모임', '경조사', '숙소비', '기타'];
+            const categoryTotals = Object.fromEntries(categories.map(c => [c, 0]));
+            expenseData.forEach(item => { categoryTotals[getExpenseCategory(item.기재내용)] += item.찾으신금액; });
+
+            const palette = {
+                '정규모임': 'rgba(255, 107, 107, 0.9)',
+                '경조사': 'rgba(254, 202, 87, 0.9)',
+                '숙소비': 'rgba(72, 219, 251, 0.9)',
+                '기타': 'rgba(29, 209, 161, 0.9)'
+            };
+
+            const labels = categories;
+            const values = categories.map(c => categoryTotals[c]);
+            const maxIdx = values.indexOf(Math.max(...values));
+            const maxLabel = labels[maxIdx] || '';
+            const maxValue = values[maxIdx] || 0;
+
+            // 금액 라벨 플러그인 (막대 위 금액 표시)
+            const valueLabelPlugin = {
+                id: 'valueLabel',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 10px Noto Sans KR';
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta) return;
+                    meta.data.forEach((pt, i) => {
+                        const val = values[i] || 0;
+                        const txt = new Intl.NumberFormat('ko-KR').format(val);
+                        ctx.textAlign = 'center';
+                        ctx.fillText(txt, pt.x, pt.y - 6);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            // 막대 그래프 (선택 항목 하이라이트: 선택 외 투명도 낮춤)
+            if (expenseBarChart) expenseBarChart.destroy();
+            expenseBarChart = new Chart(
+                document.getElementById('expenseBarChart').getContext('2d'),
+                {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: `${year} 지출 합계`, data: values, backgroundColor: labels.map(l => {
+                        const base = palette[l];
+                        if (!selectedExpenseCategory || selectedExpenseCategory === l) return base;
+                        return base.replace('0.9', '0.3');
+                    }) }] },
+                    options: Object.assign({}, getChartOptions(), { scales: { y: { ticks: { color: 'white' } } } }),
+                    plugins: [valueLabelPlugin]
+                }
+            );
+
+            // 도넛 그래프: 중앙 텍스트
+            const centerText = {
+                id: 'centerText',
+                afterDraw(chart) {
+                    const { ctx, chartArea: { width, height } } = chart;
+                    ctx.save();
+                    ctx.fillStyle = 'white';
+                    ctx.textAlign = 'center';
+                    ctx.font = 'bold 12px Noto Sans KR';
+                    ctx.fillText(maxLabel, width / 2, height / 2 - 6);
+                    ctx.font = 'bold 14px Noto Sans KR';
+                    ctx.fillText(new Intl.NumberFormat('ko-KR').format(maxValue) + '원', width / 2, height / 2 + 14);
+                    ctx.restore();
+                }
+            };
+
+            if (expenseDoughnutChart) expenseDoughnutChart.destroy();
+            expenseDoughnutChart = new Chart(
+                document.getElementById('expenseDoughnutChart').getContext('2d'),
+                {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels.map((l, i) => `${l} (${new Intl.NumberFormat('ko-KR').format(values[i])}원)`),
+                        datasets: [{ 
+                            data: values,
+                            backgroundColor: labels.map(l => palette[l]),
+                            offset: (ctx) => {
+                                const idx = ctx.dataIndex;
+                                return labels[idx] === selectedExpenseCategory ? 12 : 0;
+                            },
+                            borderWidth: (ctx) => (labels[ctx.dataIndex] === selectedExpenseCategory ? 2 : 0),
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: Object.assign({}, getChartOptions(false), {
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: 'white', boxWidth: 12, padding: 12 },
+                                onClick: (e, legendItem, legend) => {
+                                    const idx = legendItem.index;
+                                    const cat = labels[idx];
+                                    selectExpenseCategory(cat);
+                                }
+                            }
+                        },
+                        layout: { padding: { top: 10, bottom: 10 } },
+                        cutout: '65%'
+                    }),
+                    plugins: [centerText]
+                }
+            );
+            // 초기 안내
+            const details = document.getElementById('expenseDetails');
+            if (details) details.innerHTML = '<div class="summary-item text-center">항목 범례를 클릭하면 연간 해당 항목의 상세 내역이 아래에 표시됩니다.</div>';
+        }
+
         function showMemberData(member) {
             document.getElementById('memberStats').classList.remove('hidden');
             const tbody = document.getElementById('memberTransactions');
@@ -675,56 +1038,10 @@
             document.getElementById('memberTotalCount').textContent = filtered.filter(i => i.맡기신금액 > 0).length + '회';
             tbody.innerHTML = '';
             filtered.forEach(item => {
-                tbody.innerHTML += `<tr><td>${formatDate(item.거래일시)}</td><td>${item.기재내용}</td><td class="amount deposit">+${formatNumber(item.맡기신금액)}원</td><td>${item.메모 || ''}</td></tr>`;
+                const isDeposit = (item.맡기신금액 || 0) > 0;
+                const amount = isDeposit ? item.맡기신금액 : item.찾으신금액;
+                tbody.innerHTML += `<tr><td>${formatDate(item.거래일시)}</td><td>${item.기재내용}</td><td class="amount ${isDeposit ? 'deposit' : 'withdrawal'}">${isDeposit ? '+' : '-'}${formatNumber(amount)}원</td><td>${item.메모 || ''}</td></tr>`;
             });
-        }
-
-        function renderExpenseCharts() {
-            const expenseData = allTransactionData.filter(i => i.찾으신금액 > 0);
-            const monthlyExpenses = Array(12).fill(0);
-            const categoryExpenses = {};
-
-            expenseData.forEach(item => {
-                const month = parseInt(item.거래일시.split('.')[1]) - 1;
-                if (month >= 0 && month < 12) monthlyExpenses[month] += item.찾으신금액;
-                let category = '기타';
-                if (item.기재내용.includes('정규모임')) category = '정규모임';
-                else if (item.기재내용.includes('경조사')) category = '경조사';
-                categoryExpenses[category] = (categoryExpenses[category] || 0) + item.찾으신금액;
-            });
-
-            if (expenseBarChart) expenseBarChart.destroy();
-            expenseBarChart = new Chart(document.getElementById('expenseBarChart').getContext('2d'), { type: 'bar', data: { labels: Array.from({ length: 12 }, (_, i) => `${i + 1}월`), datasets: [{ label: '월별 지출', data: monthlyExpenses, backgroundColor: '#ff9f43' }] }, options: getChartOptions() });
-
-            if (expenseDoughnutChart) expenseDoughnutChart.destroy();
-            expenseDoughnutChart = new Chart(document.getElementById('expenseDoughnutChart').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(categoryExpenses), datasets: [{ data: Object.values(categoryExpenses), backgroundColor: ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1'] }] }, options: getChartOptions(false) });
-        }
-
-        function renderExpenseDetails(type) {
-            const detailsContainer = document.getElementById('expenseDetails');
-            detailsContainer.innerHTML = '';
-            const expenseData = allTransactionData.filter(i => i.찾으신금액 > 0);
-            let grouped = {};
-            if (type === 'monthly') {
-                expenseData.forEach(item => {
-                    const month = `${parseYear(item.거래일시)}년 ${item.거래일시.split('.')[1]}월`;
-                    if (!grouped[month]) grouped[month] = [];
-                    grouped[month].push(item);
-                });
-            } else { // category
-                expenseData.forEach(item => {
-                    let category = '기타';
-                    if (item.기재내용.includes('정규모임')) category = '정규모임';
-                    else if (item.기재내용.includes('경조사')) category = '경조사';
-                    if (!grouped[category]) grouped[category] = [];
-                    grouped[category].push(item);
-                });
-            }
-
-            for (const [group, items] of Object.entries(grouped)) {
-                let tableRows = items.map(i => `<tr><td>${formatDate(i.거래일시)}</td><td>${i.기재내용}</td><td>${formatNumber(i.찾으신금액)}원</td><td>${i.메모 || ''}</td></tr>`).join('');
-                detailsContainer.innerHTML += `<h3 class="text-md font-bold mt-4 mb-2">${group}</h3><table class="transaction-table">${tableRows}</table>`;
-            }
         }
 
         // 데이터 관리 (업데이트/수정)
@@ -737,7 +1054,7 @@
             isPasswordVerified = false;
         }
         function checkPassword() {
-            if (document.getElementById('updatePassword').value === '5691') {
+            if (document.getElementById('updatePassword').value === '9480') {
                 isPasswordVerified = true;
                 document.getElementById('passwordArea').classList.add('hidden');
                 document.getElementById('dataArea').classList.remove('hidden');
@@ -799,13 +1116,88 @@
         }
 
         function parseCSV(csvData) {
-            const lines = csvData.split('\n').filter(line => line.trim());
-            return lines.map(line => {
-                const parts = line.split(',').map(p => p.trim());
-                let content = parts[2];
-                const alias = Object.keys(MEMBERS).find(name => MEMBERS[name].aliases.includes(content));
-                if (alias) content = alias;
-                return { "No.": parseInt(parts[0]), "거래일시": parts[1], "기재내용": content, "찾으신금액": parseFloat(parts[3]) || 0, "맡기신금액": parseFloat(parts[4]) || 0, "거래후 잔액": parseFloat(parts[5]) || 0, "메모": parts[6] || "" };
+            const lines = csvData.split(/\r?\n/).filter(line => line.trim());
+            if (lines.length === 0) return [];
+
+            // 구분자 판별: 탭 우선, 없으면 콤마
+            const detectDelimiter = (line) => (line.includes('\t') ? '\t' : ',');
+            const firstDelim = detectDelimiter(lines[0]);
+            const split = (line) => line.split(firstDelim).map(p => p.trim().replace(/^\"|\"$/g, ''));
+
+            const headers = split(lines[0]).map(h => h.replace(/\s+/g, ''));
+            const hasHeader = headers.some(h => ['연도','월','거래일시2','내용','비고','지출','지입','잔액','구분','비고2','거래일시','기재내용'].includes(h));
+
+            const rows = hasHeader ? lines.slice(1) : lines;
+
+            // 유틸
+            const toNumber = (s) => {
+                if (s == null) return 0;
+                const v = String(s).replace(/,/g, '').replace(/\s/g, '');
+                const n = parseFloat(v || '0');
+                return isNaN(n) ? 0 : n;
+            };
+            const normDate = (d, y, m) => {
+                if (d && /\d{4}-\d{2}-\d{2}/.test(d)) {
+                    const [Y, M, D] = d.split('-');
+                    return `${Y.slice(2)}.${M}.${D}`;
+                }
+                if (d && /\d{2}\.\d{2}\.\d{2}/.test(d)) return d; // 이미 형식화됨
+                if (y && m) {
+                    // day 미제공 시 01일로 생성
+                    const yy = String(y).slice(-2);
+                    const mm = String(m).padStart(2,'0');
+                    return `${yy}.${mm}.01`;
+                }
+                return d || '';
+            };
+            const resolveNameAlias = (name) => {
+                const aliasOwner = Object.keys(MEMBERS).find(n => (MEMBERS[n].aliases||[]).includes(name));
+                return aliasOwner || name;
+            };
+
+            // 헤더 인덱스 맵핑
+            const idx = (key) => {
+                const keyNoSpace = key.replace(/\s+/g, '');
+                const i = headers.findIndex(h => h === keyNoSpace);
+                return i === -1 ? null : i;
+            };
+
+            const iYear = hasHeader ? idx('연도') : null;
+            const iMonth = hasHeader ? idx('월') : null;
+            const iDate2 = hasHeader ? idx('거래일시2') : null;
+            const iDate = hasHeader ? (idx('거래일시') ?? iDate2) : 1;
+            const iContent = hasHeader ? (idx('내용') ?? idx('기재내용')) : 2;
+            const iMemo = hasHeader ? idx('비고') : 6;
+            const iMemo2 = hasHeader ? idx('비고2') : null;
+            const iWithdrawal = hasHeader ? idx('지출') : 3;
+            const iDeposit = hasHeader ? idx('지입') : 4;
+            const iBalance = hasHeader ? idx('잔액') : 5;
+
+            // 변환
+            return rows.map((line, rowIdx) => {
+                const parts = split(line);
+                const yearVal = iYear != null ? parts[iYear] : null;
+                const monthVal = iMonth != null ? parts[iMonth] : null;
+                const dateRaw = iDate != null ? parts[iDate] : null;
+                const dateStr = normDate(dateRaw, yearVal, monthVal);
+                let content = iContent != null ? parts[iContent] : '';
+                content = resolveNameAlias(content);
+                const memoA = iMemo != null ? (parts[iMemo] || '') : '';
+                const memoB = iMemo2 != null ? (parts[iMemo2] || '') : '';
+                const memo = [memoA, memoB].filter(Boolean).join(' ');
+                const withdrawal = iWithdrawal != null ? toNumber(parts[iWithdrawal]) : 0;
+                const deposit = iDeposit != null ? toNumber(parts[iDeposit]) : 0;
+                const balance = iBalance != null ? toNumber(parts[iBalance]) : 0;
+
+                return {
+                    "No.": Date.now() + rowIdx, // 임시 No. (정렬 후 유지)
+                    "거래일시": dateStr,
+                    "기재내용": content,
+                    "찾으신금액": withdrawal,
+                    "맡기신금액": deposit,
+                    "거래후 잔액": balance,
+                    "메모": memo
+                };
             });
         }
 
@@ -816,8 +1208,14 @@
             if (uniqueNewItems.length > 0) {
                 allTransactionData = [...uniqueNewItems, ...allTransactionData];
                 normalizeData();
-                showDataUpdateModal(generateNewDataFileContent());
-                alert(`${uniqueNewItems.length}개의 새로운 거래내역이 추가되었습니다. data.js 파일을 업데이트하세요.`);
+                // Replit 서버에 즉시 저장
+                if (typeof saveFileToServer === 'function') {
+                    saveFileToServer('data', generateNewDataFileContent());
+                    alert(`${uniqueNewItems.length}개의 새로운 거래내역이 추가/저장되었습니다.`);
+                } else {
+                    showDataUpdateModal(generateNewDataFileContent());
+                    alert(`${uniqueNewItems.length}개의 새로운 거래내역이 추가되었습니다. data.js 파일을 업데이트하세요.`);
+                }
                 renderCurrentPage();
                 closeUpdateModal();
             } else {
@@ -848,8 +1246,12 @@
             renderCurrentPage();
             renderUpdateTransactionList();
             cancelEdit();
-            showDataUpdateModal(generateNewDataFileContent());
-            alert('수정이 완료되었습니다. data.js 파일을 업데이트하세요.');
+            // Replit 서버에 즉시 저장
+            if (typeof saveFileToServer === 'function') {
+                saveFileToServer('data', generateNewDataFileContent());
+            } else {
+                showDataUpdateModal(generateNewDataFileContent());
+            }
         }
         function cancelEdit() {
             editingIndex = -1;
@@ -884,46 +1286,143 @@
             };
             return `window.jotData = ${JSON.stringify(dataToSave, null, 4)};`;
         }
+        function generateNewLogsFileContent() {
+            const logsToSave = Array.isArray(window.jotLogs) ? window.jotLogs : [];
+            return `window.jotLogs = ${JSON.stringify(logsToSave, null, 4)};`;
+        }
 
-        function loadReceipts() {
-            receipts = loadFromLocalStorage('receipts');
+        // Replit 서버에 파일 저장
+        async function saveFileToServer(fileName, fileContent) {
+            try {
+                const resp = await fetch(`${API_BASE}/update-data-9480`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file: fileName, content: fileContent })
+                });
+                if (!resp.ok) {
+                    const msg = await resp.text();
+                    alert('서버 저장 실패: ' + msg);
+                } else {
+                    console.log(`${fileName} 파일이 서버에 성공적으로 저장되었습니다.`);
+                }
+            } catch (e) {
+                console.error('서버 전송 오류:', e);
+                alert('서버 전송 중 오류가 발생했습니다.');
+            }
+        }
+
+        async function loadReceipts() {
             const list = document.getElementById('receiptList');
             list.innerHTML = '';
+            try {
+                // 서버에서 IMG 목록을 불러와 최신순 표시
+                const resp = await fetch(`${API_BASE}/images`);
+                if (resp.ok) {
+                    const items = await resp.json();
+                    if (!items.length) { list.innerHTML = '<div class="summary-item text-center">등록된 영수증이 없습니다.</div>'; return; }
+                    items.forEach(it => {
+                        list.innerHTML += `<div class="receipt-item" onclick="viewReceipt('${it.url}')"><div class="font-bold">${it.fileName}</div><div class="text-sm text-gray-400">서버 저장 · 최신순</div></div>`;
+                    });
+                    return;
+                }
+            } catch (_) {}
+            // 폴백: 기존 localStorage
+            receipts = loadFromLocalStorage('receipts');
+            if (!receipts.length) { list.innerHTML = '<div class="summary-item text-center">등록된 영수증이 없습니다.</div>'; return; }
             receipts.forEach(r => {
                 list.innerHTML += `<div class="receipt-item" onclick="viewReceipt('${r.dataUrl}')"><div class="font-bold">${r.name}</div><div class="text-sm text-gray-400">등록자: ${r.user} | ${r.date}</div></div>`;
             });
         }
-        function handleReceiptUpload(event) {
+        async function handleReceiptUpload(event) {
             const file = event.target.files[0];
-            const user = prompt("등록자 이름을 입력하세요:", "");
-            if (!file || !user) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                receipts.unshift({ id: Date.now(), name: file.name, user, date: new Date().toLocaleString('ko-KR'), dataUrl: e.target.result });
+            const user = sessionStorage.getItem('memberName');
+            if (!file) return;
+            if (!user || !ALL_MEMBER_NAMES.includes(user)) { alert('로그인 후 이용하세요.'); return; }
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('user', user);
+                const resp = await fetch(`${API_BASE}/upload-receipt`, { method: 'POST', body: fd });
+                if (!resp.ok) { alert('업로드 실패: ' + (await resp.text())); return; }
+                const result = await resp.json();
+                // 서버가 저장한 파일 경로 및 OCR 결과 활용
+                const savedName = result.fileName || file.name;
+                const ocr = result.ocr || {};
+                const tx = {
+                    "No.": Date.now(),
+                    "거래일시": ocr.date || new Date().toISOString().slice(2,10).replaceAll('-','.'),
+                    "기재내용": ocr.category || '영수증',
+                    "찾으신금액": Math.max(0, Number(ocr.amount) || 0),
+                    "맡기신금액": 0,
+                    "거래후 잔액": (allTransactionData[0]?.['거래후 잔액'] || 0) - (Number(ocr.amount) || 0),
+                    "메모": (ocr.memo ? `${ocr.memo} ` : '') + `[영수증:${savedName}] 등록자:${user}`
+                };
+                allTransactionData = [tx, ...allTransactionData];
+                normalizeData();
+                // 서버에 data.js 저장
+                if (typeof saveFileToServer === 'function') {
+                    await saveFileToServer('data', generateNewDataFileContent());
+                }
+                // 로컬 영수증 목록 표시는 기존대로 유지
+                receipts.unshift({ id: Date.now(), name: savedName, user, date: new Date().toLocaleString('ko-KR'), dataUrl: result.publicUrl || '' });
                 saveToLocalStorage('receipts', receipts);
                 loadReceipts();
-                addNotice(user, `${user}님이 영수증(${file.name})을 등록했습니다.`);
-            };
-            reader.readAsDataURL(file);
+                addNotice(user, `${user}님이 영수증(${savedName})을 등록했습니다.`);
+            } catch (e) {
+                alert('영수증 업로드 중 오류: ' + e.message);
+            }
         }
         function viewReceipt(dataUrl) { window.open(dataUrl, '_blank'); }
 
+        function renderLogItemHTML(log) {
+            const icon = log.type === 'meeting' ? '📅' : '📢';
+            return `<div class="notice-item">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-sm text-gray-400"><b>${icon} ${log.type.toUpperCase()}</b> | ${log.timestamp}</div>
+                </div>
+                <div>${log.description.replace(/\n/g, '<br>')}</div>
+            </div>`;
+        }
+
         function loadNotices() {
-            const list = document.getElementById('noticeList');
-            list.innerHTML = '';
-            notices.forEach(n => {
-                list.innerHTML += `<div class="notice-item"><div class="flex justify-between items-start mb-2"><div class="text-sm text-gray-400"><b>${n.user}</b> | ${n.date}</div><button onclick="deleteNotice(${n.id})" class="text-red-400"><i class="fas fa-times"></i></button></div><div>${n.content.replace(/\n/g, '<br>')}</div></div>`;
-            });
+            const latestBox = document.getElementById('latestNotice');
+            const logs = (window.jotLogs || []).slice();
+            latestBox.innerHTML = logs.length ? renderLogItemHTML(logs[0]) : '<div class="summary-item text-center">등록된 공지가 없습니다.</div>';
+        }
+
+        function togglePreviousNotices() {
+            const prevBox = document.getElementById('previousNotices');
+            const btn = document.getElementById('togglePrevBtn');
+            const isHidden = prevBox.classList.contains('hidden');
+            if (isHidden) {
+                prevBox.classList.remove('hidden');
+                btn.textContent = '이전 공지 숨기기';
+            } else {
+                prevBox.classList.add('hidden');
+                btn.textContent = '이전 공지 보기';
+            }
         }
         function addNotice(user, content) {
-            const userVal = user || document.getElementById('noticeUser').value.trim();
+            // 로그인 사용자 우선
+            const loginUser = sessionStorage.getItem('memberName');
+            const userVal = loginUser && ALL_MEMBER_NAMES.includes(loginUser)
+                ? loginUser
+                : (user || document.getElementById('noticeUser').value.trim());
             const contentVal = content || document.getElementById('newNotice').value.trim();
             if (userVal && contentVal) {
                 notices.unshift({ id: Date.now(), user: userVal, content: contentVal, date: new Date().toLocaleString('ko-KR') });
                 document.getElementById('noticeUser').value = '';
                 document.getElementById('newNotice').value = '';
                 loadNotices();
-                showDataUpdateModal(generateNewDataFileContent());
+                if (typeof logActivity === 'function') {
+                    logActivity('notice', `${userVal}: ${contentVal}`);
+                }
+                // Replit 서버에 logs.js 저장
+                if (typeof saveFileToServer === 'function') {
+                    saveFileToServer('logs', generateNewLogsFileContent());
+                } else {
+                    showDataUpdateModal(generateNewLogsFileContent());
+                }
             }
         }
         function deleteNotice(id) {
@@ -970,6 +1469,15 @@
             loadMeetings();
             addNotice(user, `${user}님이 모임(${newMeeting.date} at ${newMeeting.place})을 등록했습니다.`);
             showMeetingPopup(newMeeting);
+            if (typeof logActivity === 'function') {
+                logActivity('meeting', `${user} 모임 등록\n일시: ${newMeeting.date}\n장소: ${newMeeting.place}\n내용: ${newMeeting.description}`);
+            }
+            // Replit 서버에 logs.js 저장
+            if (typeof saveFileToServer === 'function') {
+                saveFileToServer('logs', generateNewLogsFileContent());
+            } else {
+                showDataUpdateModal(generateNewLogsFileContent());
+            }
         }
         function deleteMeeting(id) {
             if (confirm('삭제하시겠습니까?')) {
@@ -982,6 +1490,33 @@
             const content = document.getElementById('meetingContent');
             content.innerHTML = `<div class="meeting-item"><p><strong>🗓️ 일시:</strong> ${meeting.date}</p><p><strong>📍 장소:</strong> ${meeting.place}</p><p><strong>📝 내용:</strong> ${meeting.description}</p></div>`;
             document.getElementById('meetingModal').classList.remove('hidden');
+        }
+
+        // 공지등록 페이지의 서브 기능: 모임 폼/이전 모임 토글
+        function toggleMeetingForm() {
+            const box = document.getElementById('meetingFormContainer');
+            const btn = document.getElementById('toggleMeetingFormBtn');
+            const hidden = box.classList.contains('hidden');
+            if (hidden) {
+                box.classList.remove('hidden');
+                btn.textContent = '모임 등록 숨기기';
+            } else {
+                box.classList.add('hidden');
+                btn.textContent = '모임 등록';
+            }
+        }
+        function togglePreviousMeetings() {
+            const list = document.getElementById('meetingList');
+            const btn = document.getElementById('togglePrevMeetingsBtn');
+            const hidden = list.classList.contains('hidden');
+            if (hidden) {
+                loadMeetings();
+                list.classList.remove('hidden');
+                btn.textContent = '이전 모임 숨기기';
+            } else {
+                list.classList.add('hidden');
+                btn.textContent = '이전 모임 보기';
+            }
         }
 
         // =================================================================================
@@ -1027,11 +1562,11 @@
                 case 0: renderAllTransactions(); renderSummary(); break;
                 case 1: document.getElementById('yearButtons').classList.remove('hidden'); createYearlyChart('all'); break;
                 case 2: document.getElementById('memberButtons').classList.remove('hidden'); showMemberData('김봉철'); break;
-                case 3: document.getElementById('expenseButtons').classList.remove('hidden'); renderExpenseCharts(); renderExpenseDetails('monthly'); break;
+                case 3: renderExpenseCharts(); break;
                 case 4: calculateUnpaidAmounts(); break;
                 case 5: loadReceipts(); break;
                 case 6: loadNotices(); break;
-                case 7: loadMeetings(); break;
+                case 7: /* 공지 등록 폼 */ break;
             }
         }
 
